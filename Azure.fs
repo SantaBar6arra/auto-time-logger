@@ -42,7 +42,7 @@ let formAllCommitsUrl azureManager =
     let uriBuilder = UriBuilder(azureManager.ApiUrl + "/commits?api-version=7.1-preview.1")
     let query = HttpUtility.ParseQueryString uriBuilder.Query
     
-    let fromDate = DateTime.Today.AddDays(-1).ToString("G", CultureInfo.InvariantCulture) // todo: rm .AddDays(-1) ??
+    let fromDate = DateTime.Today.ToString("G", CultureInfo.InvariantCulture) // .AddDays(-1) ??
     query["searchCriteria.fromDate"] <- fromDate
     query["searchCriteria.user"] <- azureManager.Username
     
