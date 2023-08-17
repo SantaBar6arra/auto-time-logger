@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+#app.config in this particular case
+app.config
+
 # User-specific files
 *.rsuser
 *.suo

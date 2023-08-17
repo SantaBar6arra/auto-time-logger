@@ -1,4 +1,5 @@
 ﻿module AutoTimeLogger.Azure
+
 open System
 open System.Globalization
 open System.Net.Http
@@ -7,60 +8,87 @@ open System.Text
 open System.Web
 open Newtonsoft.Json
 
-type AzureManager = {
-    Username: string
-    Token: string
-    ApiUrl: string
-}
+type AzureManager =
+    { Username: string
+      Token: string
+      ApiUri: Uri
+      DateFormat: string }
 
-type CommitId = {
-    [<JsonProperty("commitId")>] CommitId: string
-}
+type CommitId =
+    { [<JsonProperty("commitId")>]
+      CommitId: string }
 
-type GetAllCommitsResponse = {
-    [<JsonProperty("count")>] Count: int
-    [<JsonProperty("value")>] Value: CommitId[]
-}
+type GetAllCommitsResponse =
+    { [<JsonProperty("count")>]
+      Count: int
+      [<JsonProperty("value")>]
+      Value: CommitId[] }
 
-type CommitData = {
-    [<JsonProperty("comment")>] Comment: string
-}
+type CommitData =
+    { [<JsonProperty("comment")>]
+      Comment: string }
 
-let makeAzureGetRequest azureManager url =
+
+let makeAzureGetRequest azureManager uri =
     async {
         use httpClient = new HttpClient()
-        httpClient.DefaultRequestHeaders.Accept.Add <| MediaTypeWithQualityHeaderValue "application/json"
-        
+
+        httpClient.DefaultRequestHeaders.Accept.Add
+        <| MediaTypeWithQualityHeaderValue "application/json"
+
         // ":" is needed for proper auth
-        let base64token = (":" + azureManager.Token) |> ASCIIEncoding.ASCII.GetBytes |> Convert.ToBase64String
+        let base64token =
+            (":" + azureManager.Token)
+            |> ASCIIEncoding.ASCII.GetBytes
+            |> Convert.ToBase64String
+
         httpClient.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("Basic", base64token)
-        
-        return! Http.fetch httpClient url
+
+        return! Http.fetch httpClient uri
     }
 
-let formAllCommitsUrl azureManager =
-    let uriBuilder = UriBuilder(azureManager.ApiUrl + "/commits?api-version=7.1-preview.1")
+
+let formAllCommitsUri azureManager (date: DateTime) =
+    let uriBuilder = UriBuilder(azureManager.ApiUri)
+
+    uriBuilder.Path <- uriBuilder.Path + "/commits?api-version=7.1-preview.1"
+
     let query = HttpUtility.ParseQueryString uriBuilder.Query
-    
-    let fromDate = DateTime.Today.ToString("G", CultureInfo.InvariantCulture) // .AddDays(-1) ??
-    query["searchCriteria.fromDate"] <- fromDate
-    query["searchCriteria.user"] <- azureManager.Username
-    
-    uriBuilder.Query <- query.ToString()
-    uriBuilder.ToString()
 
-let getCommitComment azureManager (commitId: string)  =
+    let fromDate = date.ToString(azureManager.DateFormat, CultureInfo.InvariantCulture) // todo: add proper handling in order to fulfill fp
+
+    let toDate =
+        (date.AddDays 1).ToString(azureManager.DateFormat, CultureInfo.InvariantCulture) // next day
+
+    query["searchCriteria.fromDate"] <- fromDate
+    query["searchCriteria.toDate"] <- toDate
+    query["searchCriteria.user"] <- azureManager.Username
+
+    uriBuilder.Query <- query.ToString()
+    uriBuilder.Uri
+
+
+let getCommitComment azureManager (commitId: string) =
     async {
-        let commitUrl = azureManager.ApiUrl + $"/commits/{commitId}?api-version=7.1-preview.1"
-        let! commitResponse = makeAzureGetRequest azureManager commitUrl
-        
-        return JsonConvert.DeserializeObject<CommitData> commitResponse    
+        let commitUri =
+            Uri(
+                azureManager.ApiUri.ToString()
+                + $"/commits/{commitId}?api-version=7.1-preview.1"
+            )
+
+        let! commitResponse = makeAzureGetRequest azureManager commitUri
+
+        return JsonConvert.DeserializeObject<CommitData> commitResponse
     }
-    
-let getAllCommits azureManager =
-    let allCommitsUrl = formAllCommitsUrl azureManager
-    let allCommitsResponse = makeAzureGetRequest azureManager allCommitsUrl |> Async.RunSynchronously
-    
+
+
+let getAllCommits azureManager date =
+    let allCommitsUri = formAllCommitsUri azureManager date
+
+    let allCommitsResponse =
+        makeAzureGetRequest azureManager allCommitsUri |> Async.RunSynchronously
+
     let data = JsonConvert.DeserializeObject<GetAllCommitsResponse> allCommitsResponse
-    
-    Array.map (fun commitId -> getCommitComment azureManager commitId.CommitId) data.Value |> Async.Parallel
+
+    Array.map (fun commitId -> getCommitComment azureManager commitId.CommitId) data.Value
+    |> Async.Parallel
