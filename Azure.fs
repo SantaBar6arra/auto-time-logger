@@ -36,13 +36,7 @@ let makeAzureGetRequest azureManager uri =
         httpClient.DefaultRequestHeaders.Accept.Add
         <| MediaTypeWithQualityHeaderValue "application/json"
 
-        // ":" is needed for proper auth
-        let base64token =
-            (":" + azureManager.Token)
-            |> ASCIIEncoding.ASCII.GetBytes
-            |> Convert.ToBase64String
-
-        httpClient.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("Basic", base64token)
+        httpClient.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("Basic", azureManager.Token)
 
         return! Http.fetch httpClient uri
     }
@@ -51,7 +45,7 @@ let makeAzureGetRequest azureManager uri =
 let formAllCommitsUri azureManager (date: DateTime) =
     let uriBuilder = UriBuilder(azureManager.ApiUri)
 
-    uriBuilder.Path <- uriBuilder.Path + "/commits?api-version=7.1-preview.1"
+    uriBuilder.Path <- uriBuilder.Path + "/commits"
 
     let query = HttpUtility.ParseQueryString uriBuilder.Query
 
@@ -60,6 +54,7 @@ let formAllCommitsUri azureManager (date: DateTime) =
     let toDate =
         (date.AddDays 1).ToString(azureManager.DateFormat, CultureInfo.InvariantCulture) // next day
 
+    query["api-version"] <- "7.1-preview.1"
     query["searchCriteria.fromDate"] <- fromDate
     query["searchCriteria.toDate"] <- toDate
     query["searchCriteria.user"] <- azureManager.Username

@@ -3,8 +3,8 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
-#app.config in this particular case
-app.config
+#config.yaml in this particular case
+config.yaml
 
 # User-specific files
 *.rsuser

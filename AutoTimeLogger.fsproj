@@ -13,5 +13,6 @@
     <PackageReference Include="FSharp.CommandLine" Version="3.3.3805.29705" />
     <PackageReference Include="FSharp.Configuration" Version="2.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
   </ItemGroup>
 </Project>
