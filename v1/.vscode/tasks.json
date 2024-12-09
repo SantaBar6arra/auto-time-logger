@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"command": "dotnet",
+			"type": "process",
+			"args": ["build", "${workspaceFolder}/AutoTimeLogger.fsproj"],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"dependsOn": ["clean"],
+			"detail": "Build the entire solution."
+		},
+		{
+			"label": "clean",
+			"command": "dotnet",
+			"type": "process",
+			"args": ["clean", "${workspaceFolder}/AutoTimeLogger.fsproj"],
+			"problemMatcher": [],
+			"group": {
+				"kind": "none",
+				"isDefault": false
+			},
+			"detail": "Clean the entire solution."
+		}
+	]
+}
