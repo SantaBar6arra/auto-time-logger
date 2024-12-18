@@ -3,44 +3,42 @@
 open LibGit2Sharp
 open FSharp.Configuration
 open System
-open System.Text.RegularExpressions
 open AutoTimeLogger.Types
+open AutoTimeLogger.Git
+open System.Globalization
+open System.Text.Json
+open System.IO
 
 type Config = YamlConfig<"config.yaml">
 
-let taskNumberRegex = Regex(@"[a-zA-Z]+\-\d+")
-
-let filterByAuthorAndDate (author: string, date: DateTime) (commit: Commit) =
-    commit.Author.Email = author && commit.Author.When.Date = date
-
-let listCommits (repo: Repository) author date =
-    let commitLog = repo.Commits.QueryBy(CommitFilter())
-    let isMineTodayCommit = filterByAuthorAndDate (author, date)
-    let mineTodayCommits = commitLog |> Seq.filter isMineTodayCommit
-
-    mineTodayCommits
-    |> Seq.map (fun commit ->
-        let taskNumber = taskNumberRegex.Match commit.Message
-
-        {
-            Date = date
-            TaskNumber = taskNumber.Groups[0].Value
-            CommitMessage = commit.Message
-        }
-    )
+let parseDate str =
+    DateTime.ParseExact(str, "dd-MM-yyyy", CultureInfo.InvariantCulture)
 
 let config = Config()
-let dates = config.Git.Dates |> Seq.map DateTime.Parse
 
-config.Git.RepoPaths
-|> Seq.iter (fun path ->
-    let repo = new Repository(path)
+let dates = config.Git.Dates |> Seq.map parseDate
 
-    let commits =
-        dates
-        |> Seq.map (listCommits repo config.Git.Author)
-        |> Seq.collect (fun commitsAtDate -> commitsAtDate)
+let commits =
+    config.Git.RepoPaths
+    |> Seq.map (fun path ->
+        let repo = new Repository(path)
 
-    commits
-    |> Seq.iter (fun commit -> printfn $"%A{commit.Date} %s{commit.TaskNumber}: %s{commit.CommitMessage}")
-)
+        let commits =
+            dates
+            |> Seq.map (listCommits repo config.Git.Author)
+            |> Seq.collect (fun commitsAtDate -> commitsAtDate)
+
+        commits
+    )
+    |> Seq.collect (fun commitsPerRepo -> commitsPerRepo)
+    |> Seq.sortBy (fun commit -> commit.Date)
+    |> Seq.toArray
+
+let log = { Commits = commits }
+
+let json =
+    JsonSerializer.Serialize(log, JsonSerializerOptions(WriteIndented = true))
+
+let logFilePath = sprintf $"{config.Git.LogFilePath}\\log.json"
+
+File.WriteAllText(logFilePath, json)
